@@ -1,25 +1,20 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module LispVal where
 
-import Data.Text as T
-import qualified Data.Map as Map
-import Control.Monad.Except
-import Control.Monad.Reader
+type Tail = LispVal
+type Head = [LispVal]
 
-data LispVal =
-  Atom T.Text
-  | List [LispVal]
-  | Number Integer
-  | String T.Text
-  | Fun IFunc
-  | Lambda IFunc EnvCtx
-  | Nil
-  | Bool Bool
-  -- deriving (Typeable)
+data LispVal = Atom String
+             | List [LispVal]
+             | DottedList Head Tail
+             | Number Integer
+             | String String
+             | Bool Bool
 
-data IFunc = IFunc { fn :: [LispVal] -> Eval LispVal}
-
-type EnvCtx = Map.Map T.Text LispVal
-
-newtype Eval a = Eval { unEval :: ReaderT EnvCtx IO a }
-  deriving ( Monad, Functor, Applicative, MonadReader EnvCtx, MonadIO)
+instance Show LispVal where
+   show (Atom x) = show x
+   show (List vals) = "(" <> unwords (fmap show vals) <> ")"
+   show (DottedList h t) = "(" <> unwords (fmap show h) <> " . " <> show t <> ")"
+   show (Number x) = show x
+   show (String x) = "\"" <> x <> "\""
+   show (Bool True) = "#t"
+   show (Bool False) = "#f"

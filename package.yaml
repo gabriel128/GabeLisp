@@ -55,7 +55,7 @@ executables:
     - -fwarn-duplicate-exports
     - -fwarn-dodgy-exports
     - -fwarn-dodgy-imports
-    - -fwarn-incomplete-patterns
+    # - -fwarn-incomplete-patterns
     - -fwarn-incomplete-record-updates
     - -fwarn-missing-fields
     - -fwarn-missing-methods
