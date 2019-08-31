@@ -30,6 +30,7 @@ dependencies:
 - text >= 1.2 && < 1.3
 - transformers >= 0.4 && < 0.6
 - HTTP -any
+- hspec
 
 default-extensions:
 - OverloadedStrings

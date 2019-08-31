@@ -1,11 +1,9 @@
-module Parser (parse, parseExpr, symbols) where
+module Parser (readExpr, symbols) where
 
--- import Control.Monad
+import Control.Monad.Except
 import LispVal
+import LispError
 import Text.ParserCombinators.Parsec hiding (spaces)
-
--- import qualified ParserLib as P
--- import System.Environment
 
 symbols :: String
 symbols = "!#$%&|*+-/:<=>?@^_~"
@@ -28,12 +26,41 @@ parseString = do
 parseAtom :: Parser LispVal
 parseAtom = do
   x <- letter <|> symbol
-  y <- many (letter  <|> digit <|> symbol)
+  y <- many (letter <|> digit <|> symbol)
   let atom = x : y
   return $ case atom of
              "#t" -> Bool True
              "#f" -> Bool False
              _ -> Atom atom
+
+singleAtom :: Parser LispVal
+singleAtom = do
+  x <- letter <|> symbol
+  y <- many (letter <|> digit <|> symbol)
+  eof
+  let atom = x : y
+  return $ case atom of
+             "#t" -> Bool True
+             "#f" -> Bool False
+             _ -> Atom atom
+
+parseParensList :: Parser LispVal
+parseParensList = do
+  char '('
+  x <- try parseList
+  char ')'
+  return x
+
+parseCond :: Parser LispVal
+parseCond = do
+  string "if"
+  spaces
+  p <- parseAtom <|> parseParensList
+  spaces
+  conseq <- (parseSimpleExpr <|> parseParensList)
+  spaces
+  alt <- (parseSimpleExpr <|> parseParensList)
+  return $ Cond p conseq alt
 
 parseNumber :: Parser LispVal
 parseNumber = fmap (Number . read) (many1 digit)
@@ -41,24 +68,39 @@ parseNumber = fmap (Number . read) (many1 digit)
 parseList :: Parser LispVal
 parseList = fmap List (sepBy parseExpr spaces)
 
-parseDottedList :: Parser LispVal
-parseDottedList = do
-  head <- endBy parseExpr spaces
-  tail <- char '.' >> spaces >> parseExpr
-  return $ DottedList head tail
-
 parseQuoted :: Parser LispVal
 parseQuoted = do
   char '\''
   x <- parseExpr
   return $ List [Atom "quote", x]
 
-parseExpr :: Parser LispVal
-parseExpr = parseAtom
+parseSimpleExpr :: Parser LispVal
+parseSimpleExpr = parseAtom
   <|> parseNumber
   <|> parseString
   <|> parseQuoted
+
+parseExpr :: Parser LispVal
+parseExpr = parseSimpleExpr
   <|> do char '('
-         x <- try parseList <|> parseDottedList
+         x <- try (parseCond <|> parseList)
          char ')'
          return x
+
+initParser :: Parser LispVal
+initParser = singleAtom <|> parseExpr
+
+checkBalanceParens :: String -> Either LispError String
+checkBalanceParens expr =
+  let lParens = filter (=='(') expr
+      rParens = filter (== ')') expr
+  in if length lParens == length rParens
+  then Right expr
+  else Left UnbalancedParens
+
+readExpr :: String -> ThrowsError LispVal
+readExpr input = do
+  expr <- checkBalanceParens input
+  case parse initParser "lisp" expr of
+    Left err -> throwError $ Parser err
+    Right val -> return val
