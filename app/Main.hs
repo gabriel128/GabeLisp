@@ -3,6 +3,7 @@ module Main where
 import Eval
 import LispVal
 import Parser
+import Primitives
 import System.IO
 import Data.Char
 
@@ -26,7 +27,26 @@ until_ pred prompt action = do
       else action result >> until_ pred prompt action
 
 runRepl :: IO ()
-runRepl = nullEnv >>= until_ (== ":q") (readPrompt "GabeLisp> ") . evalAndPrint
+runRepl = loadPrimitiveBindings >>= until_ (== ":q") (readPrompt "Schemo> ") . evalAndPrint
+
+loadPrimitiveBindings :: IO Env
+loadPrimitiveBindings = nullEnv >>= (flip bindVars $ fmap makePrimitiveFunc primitives)
+  where makePrimitiveFunc (var, func) = (var, PrimitiveFunc func)
 
 main :: IO ()
 main = runRepl
+
+{-
+(defo (f x) (+ x 2))
+(f 1)
+
+(defo (g y) (+ 1 y))
+(defo (f x y) (+ x y))
+(defo (h inc) (lambdo (x) (+ 3 4)))
+(f)
+
+
+((lambda (x) (+ x 2)) 3)
+-}
+
+-}

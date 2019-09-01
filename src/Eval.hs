@@ -1,8 +1,7 @@
-module Eval (eval) where
+module Eval (eval, setVar, bindVars) where
 
 import Data.IORef
 import LispVal
-import Primitives
 import Control.Monad.Except
 import Data.Maybe
 
@@ -11,24 +10,39 @@ eval _ val@(String _) = return val
 eval _ val@(Number _) = return val
 eval _ val@(Bool _) = return val
 eval env (Atom id) = getVar env id
-eval _ (List [Atom "quote", val]) = return val
 eval _ (List [Atom "quoto", val]) = return val
-eval env (List [Atom "define", Atom var, val]) = eval env val >>= define env var
+eval env (List (Atom "defo" : List (Atom var : params) : body)) = makeFunc env params body >>= define env var
 eval env (List [Atom "defo", Atom var, val]) = eval env val >>= define env var
+eval env (List (Atom "lambda" : List params : body)) = makeFunc env params body
+-- eval env (List (Atom "lambda" : arg@(Atom _) : body)) = makeFunc env [arg] body
 eval env (Cond pred conseq alt) = do
   p <- eval env pred
   case p of
     Bool True -> eval env conseq
     _ -> eval env alt
-eval env (List (Atom f : args)) = mapM (eval env) args >>= apply f
+eval env (List (f : args)) = do
+  func <- eval env f
+  argVals <- mapM (eval env) args
+  apply func argVals
 eval _ badform = throwError $ BadSpecialForm "Bad special form" badform
 
-apply :: String -> [LispVal] -> IOThrowsError LispVal
-apply f args =
-  -- maybe (throwError $ NotFunction "Unrecognized primitive function" f) ($ args) (lookup f primitives)
-  case lookup f primitives of
-    Just function -> liftThrows $ function args
-    Nothing -> throwError $ NotFunction "Unrecognized primitive unction" f
+{-
+(defo (f x) (+ x 2))
+(f 1)
+
+((lambda (x) (+ x 2)) 3)
+-}
+apply :: LispVal -> [LispVal] -> IOThrowsError LispVal
+apply (PrimitiveFunc f) args = liftThrows $ f args
+apply (Func params [body] closure) args
+  | num params /= num args = throwError $ NumArgs (num params) args
+  | otherwise = do
+      env <- liftIO $ bindVars closure $ zip params args
+      evalBody env
+  where
+    num = toInteger . length
+    evalBody env = eval env body
+apply _ _ = throwError $ DefaultError "Error applying function"
 
 --- ENV Handling ----
 
@@ -38,7 +52,10 @@ isBound envRef var = readIORef envRef >>= return . isJust . lookup var
 getVar :: Env -> String -> IOThrowsError LispVal
 getVar envRef var = do
   env <- liftIO $ readIORef envRef
-  maybe (throwError $ UnboundVar "Unbound variable" var) (liftIO . readIORef) (lookup var env)
+  maybe
+    (throwError $ UnboundVar "Unbound variable"  var)
+    (liftIO . readIORef)
+    (lookup var env)
 
 setVar :: Env -> String -> LispVal -> IOThrowsError LispVal
 setVar envRef var value = do
@@ -52,10 +69,14 @@ define envRef var value = do
   alreadyDefined <- liftIO $ isBound envRef var
   if alreadyDefined
   then throwError NotMutableLanguage
-  else setVar envRef var value
+  else setVar envRef var value >> return value
 
 bindVars :: Env -> [(String, LispVal)] -> IO Env
-bindVars envRef bindings = readIORef envRef >>= extendEnv bindings >>= newIORef
-     where extendEnv bindings env = fmap (++ env) (mapM addBinding bindings)
-           addBinding (var, value) = do ref <- newIORef value
-                                        return (var, ref)
+bindVars envRef bindings = do
+  env <- readIORef envRef
+  env' <- extendEnv bindings env
+  newIORef env'
+     where
+       extendEnv bindings env = fmap (++ env) (mapM addBinding bindings)
+       addBinding (var, value) = do ref <- newIORef value
+                                    return (filter (/='"') var, ref)

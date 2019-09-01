@@ -58,9 +58,12 @@ instance Show LispVal where
    show (Bool True) = "#t"
    show (Bool False) = "#f"
    show (PrimitiveFunc _) = "<Primitive func>"
-   show Func{params = args} = "(lambda (" <> unwords (map show args) <> ") ... )"
+   show Func{params = args, body = body} = "(lambda (" <> unwords (map show args) <> ")"  <>  show body <> ")"
 
 type Env = IORef [(String, IORef LispVal)]
+
+makeFunc :: Env -> [LispVal] -> [LispVal] -> IOThrowsError LispVal
+makeFunc env params body = return $ Func (fmap show params) body env
 
 nullEnv :: IO Env
 nullEnv = newIORef []
