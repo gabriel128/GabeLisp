@@ -14,7 +14,6 @@ eval _ (List [Atom "quoto", val]) = return val
 eval env (List (Atom "defo" : List (Atom var : params) : body)) = makeFunc env params body >>= define env var
 eval env (List [Atom "defo", Atom var, val]) = eval env val >>= define env var
 eval env (List (Atom "lambda" : List params : body)) = makeFunc env params body
--- eval env (List (Atom "lambda" : arg@(Atom _) : body)) = makeFunc env [arg] body
 eval env (Cond pred conseq alt) = do
   p <- eval env pred
   case p of
@@ -26,12 +25,6 @@ eval env (List (f : args)) = do
   apply func argVals
 eval _ badform = throwError $ BadSpecialForm "Bad special form" badform
 
-{-
-(defo (f x) (+ x 2))
-(f 1)
-
-((lambda (x) (+ x 2)) 3)
--}
 apply :: LispVal -> [LispVal] -> IOThrowsError LispVal
 apply (PrimitiveFunc f) args = liftThrows $ f args
 apply (Func params [body] closure) args
@@ -79,4 +72,4 @@ bindVars envRef bindings = do
      where
        extendEnv bindings env = fmap (++ env) (mapM addBinding bindings)
        addBinding (var, value) = do ref <- newIORef value
-                                    return (filter (/='"') var, ref)
+                                    return (var, ref)

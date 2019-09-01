@@ -37,8 +37,8 @@ main :: IO ()
 main = runRepl
 
 {-
-(defo (f x) (+ x 2))
-(f 1)
+(defo (f x y) (+ x y))
+(f 1 8)
 
 (defo (g y) (+ 1 y))
 (defo (f x y) (+ x y))
@@ -46,5 +46,5 @@ main = runRepl
 (f)
 
 
-((lambda (x) (+ x 2)) 3)
+(defo (counter inc) (lambda (x) (+ x inc)))
 -}

@@ -50,7 +50,7 @@ instance Show LispError where
   show _ = "Unknown Error"
 
 instance Show LispVal where
-   show (Atom x) = show x
+   show (Atom x) = x
    show (List vals) = "(" <> unwords (fmap show vals) <> ")"
    show (Number x) = show x
    show (String x) = "\"" <> x <> "\""
@@ -58,7 +58,7 @@ instance Show LispVal where
    show (Bool True) = "#t"
    show (Bool False) = "#f"
    show (PrimitiveFunc _) = "<Primitive func>"
-   show Func{params = args, body = body} = "(lambda (" <> unwords (map show args) <> ")"  <>  show body <> ")"
+   show Func{params = args, body = body} = "(lambda (" <> unwords args <> ")"  <>  show body <> ")"
 
 type Env = IORef [(String, IORef LispVal)]
 
