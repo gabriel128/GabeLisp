@@ -23,6 +23,7 @@ data LispError = NumArgs Integer [LispVal]
                | NotFunction String String
                | UnboundVar String String
                | DefaultError String
+               | ReadFileError String
                | UnbalancedParens
                | NotMutableLanguage
                deriving Eq
@@ -47,6 +48,7 @@ instance Show LispError where
   show (TypeMismatch expected found) = "Invalid type: expected " ++ expected ++ ", found " ++ show found
   show (Parser parseErr) = "Parse error at " ++ show parseErr
   show NotMutableLanguage = "This is not a mutable language mate"
+  show (ReadFileError file) = "Error reading File " <> file
   show _ = "Unknown Error"
 
 instance Show LispVal where

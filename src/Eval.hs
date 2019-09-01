@@ -4,6 +4,7 @@ import Data.IORef
 import LispVal
 import Control.Monad.Except
 import Data.Maybe
+import Parser
 
 eval :: Env -> LispVal -> IOThrowsError LispVal
 eval _ val@(String _) = return val
@@ -14,6 +15,9 @@ eval _ (List [Atom "quoto", val]) = return val
 eval env (List (Atom "defo" : List (Atom var : params) : body)) = makeFunc env params body >>= define env var
 eval env (List [Atom "defo", Atom var, val]) = eval env val >>= define env var
 eval env (List (Atom "lambda" : List params : body)) = makeFunc env params body
+eval env (List [Atom "load", String filename]) = do
+  a <- load filename
+  eval env a
 eval env (Cond pred conseq alt) = do
   p <- eval env pred
   case p of
@@ -36,6 +40,9 @@ apply (Func params [body] closure) args
     num = toInteger . length
     evalBody env = eval env body
 apply _ _ = throwError $ DefaultError "Error applying function"
+
+load :: String -> IOThrowsError LispVal
+load filename = liftIO (readFile filename) >>= liftThrows . readExpr
 
 --- ENV Handling ----
 

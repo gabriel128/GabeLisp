@@ -1,5 +1,6 @@
 module Main where
 
+import System.Environment
 import Eval
 import LispVal
 import Parser
@@ -8,16 +9,12 @@ import System.IO
 import Data.Char
 
 evalString :: Env -> String -> IO String
-evalString env expr =
-  if all isSpace expr
-  then return ""
-  else runIOThrows $ fmap show $ liftThrows (readExpr expr) >>= eval env
+evalString env expr
+  | all isSpace expr = return ""
+  | otherwise = runIOThrows $ fmap show $ liftThrows (readExpr expr) >>= eval env
 
 evalAndPrint :: Env -> String -> IO ()
 evalAndPrint env expr = evalString env expr >>= putStrLn
-
-readPrompt :: String -> IO String
-readPrompt prompt = putStr prompt >> hFlush stdout >> getLine
 
 until_ :: Monad m => (a -> Bool) -> m a -> (a -> m ()) -> m ()
 until_ pred prompt action = do
@@ -26,15 +23,30 @@ until_ pred prompt action = do
       then return ()
       else action result >> until_ pred prompt action
 
+readPrompt :: String -> IO String
+readPrompt prompt = putStr prompt >> hFlush stdout >> getLine
+
 runRepl :: IO ()
 runRepl = loadPrimitiveBindings >>= until_ (== ":q") (readPrompt "Schemo> ") . evalAndPrint
 
+runFile :: [String] -> IO ()
+runFile (headArgs:_) = do
+  env <- loadPrimitiveBindings
+  y <- runIOThrows (show <$> eval env (List [Atom "load", String headArgs]))
+  hPutStrLn stderr y
+runFile _ = error "Unexpected error reading file"
+
 loadPrimitiveBindings :: IO Env
 loadPrimitiveBindings = nullEnv >>= (flip bindVars $ fmap makePrimitiveFunc primitives)
-  where makePrimitiveFunc (var, func) = (var, PrimitiveFunc func)
+  where
+    makePrimitiveFunc (var, func) = (var, PrimitiveFunc func)
 
 main :: IO ()
-main = runRepl
+main = do
+  args <- getArgs
+  if null args
+    then runRepl
+    else runFile args
 
 {-
 (defo (f x y) (+ x y))
