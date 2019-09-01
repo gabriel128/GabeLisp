@@ -1,7 +1,6 @@
 module Primitives (primitives) where
 
 import LispVal
-import LispError
 import Control.Monad.Except
 import Parser
 
@@ -14,13 +13,22 @@ primitives = [("+", numericBinop (+)),
               ("<=", numBoolOp (<=)),
               (">=", numBoolOp (>=)),
               ("!=", numBoolOp (/=)),
+              ("avo", literal "Avocado mate"),
+              ("arvo", literal "Afternoon mate"),
+              ("arvo", literal "Afternoon mate"),
               (">", numBoolOp (>)),
               ("||", boolBoolOp (||)),
               ("&&", boolBoolOp (&&)),
               ("<", numBoolOp (<)),
+              ("eq?", eq),
+              ("car", car),
+              ("cons", cons),
+              ("conso", cons),
+              ("cdr", cdr),
               ("symbol?", isSymbol),
               ("string?", isString),
               ("mod", numericBinop mod),
+              ("modo", numericBinop mod),
               ("quotient", numericBinop quot),
               ("remainder", numericBinop rem)]
 
@@ -31,6 +39,9 @@ binOp _ _ _ _ = throwError $ NumArgs 2 []
 
 numBoolOp :: (Integer -> Integer -> Bool) -> [LispVal] -> ThrowsError LispVal
 numBoolOp = binOp unpackNum Bool
+
+literal :: String -> [LispVal] -> ThrowsError LispVal
+literal lit _ = return $ String lit
 
 numericBinop :: (Integer -> Integer -> Integer) -> [LispVal] -> ThrowsError LispVal
 numericBinop = binOp unpackNum Number
@@ -56,6 +67,15 @@ cdr :: [LispVal] -> ThrowsError LispVal
 cdr [List (_ : xs)] = return (List xs)
 cdr [badArg] = throwError $ TypeMismatch "not a list" badArg
 cdr badArg = throwError $ NumArgs 1 badArg
+
+cons :: [LispVal] -> ThrowsError LispVal
+cons [x, List []] = return $ List [x]
+cons [x, List xs] = return (List (x:xs))
+cons badArg = throwError $ NumArgs 2 badArg
+
+eq :: [LispVal] -> ThrowsError LispVal
+eq [a,b] = return $ Bool (a == b)
+eq badArg = throwError $ NumArgs 2 badArg
 
 isString :: [LispVal] -> ThrowsError LispVal
 isString [String _] = return $ Bool True

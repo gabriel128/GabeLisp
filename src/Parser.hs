@@ -2,7 +2,6 @@ module Parser (readExpr, symbols) where
 
 import Control.Monad.Except
 import LispVal
-import LispError
 import Text.ParserCombinators.Parsec hiding (spaces)
 
 symbols :: String
