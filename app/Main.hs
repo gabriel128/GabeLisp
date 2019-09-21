@@ -8,10 +8,11 @@ import Primitives
 import System.IO
 import Data.Char
 
+
 evalString :: Env -> String -> IO String
 evalString env expr
   | all isSpace expr = return ""
-  | otherwise = runIOThrows $ fmap show $ liftThrows (readExpr expr) >>= eval env
+  | otherwise = runIOThrows env $ fmap show $ liftThrows (readExpr expr) >>= eval
 
 evalAndPrint :: Env -> String -> IO ()
 evalAndPrint env expr = evalString env expr >>= putStrLn
@@ -32,7 +33,7 @@ runRepl = loadPrimitiveBindings >>= until_ (== ":q") (readPrompt "Schemo> ") . e
 runFile :: [String] -> IO ()
 runFile (headArgs:_) = do
   env <- loadPrimitiveBindings
-  y <- runIOThrows (show <$> eval env (List [Atom "load", String headArgs]))
+  y <- runIOThrows env (show <$> eval (List [Atom "load", String headArgs]))
   hPutStrLn stderr y
 runFile _ = error "Unexpected error reading file"
 

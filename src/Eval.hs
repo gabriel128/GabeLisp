@@ -3,31 +3,40 @@ module Eval (eval, setVar, bindVars) where
 import Data.IORef
 import LispVal
 import Control.Monad.Except
+import Control.Monad.Reader
 import Data.Maybe
 import Parser
 
-eval :: Env -> LispVal -> IOThrowsError LispVal
-eval _ val@(String _) = return val
-eval _ val@(Number _) = return val
-eval _ val@(Bool _) = return val
-eval env (Atom id) = getVar env id
-eval _ (List [Atom "quoto", val]) = return val
-eval env (List (Atom "defo" : List (Atom var : params) : body)) = makeFunc env params body >>= define env var
-eval env (List [Atom "defo", Atom var, val]) = eval env val >>= define env var
-eval env (List (Atom "lambda" : List params : body)) = makeFunc env params body
-eval env (List [Atom "load", String filename]) = do
+eval :: LispVal -> IOThrowsError LispVal
+eval val@(String _) = return val
+eval val@(Number _) = return val
+eval val@(Bool _) = return val
+eval (Atom id) = do
+  env <- ask
+  getVar env id
+eval (List [Atom "quote", val]) = return val
+eval (List (Atom "defo" : List (Atom var : params) : body)) = do
+  env <- ask
+  makeFunc env params body >>= define env var
+eval (List [Atom "defo", Atom var, val]) = do
+  env <- ask
+  eval val >>= define env var
+eval (List (Atom "lambo" : List params : body)) = do
+  env <- ask
+  makeFunc env params body
+eval (List [Atom "load", String filename]) = do
   a <- load filename
-  eval env a
-eval env (Cond pred conseq alt) = do
-  p <- eval env pred
+  eval a
+eval (Cond pred conseq alt) = do
+  p <- eval pred
   case p of
-    Bool True -> eval env conseq
-    _ -> eval env alt
-eval env (List (f : args)) = do
-  func <- eval env f
-  argVals <- mapM (eval env) args
+    Bool True -> eval conseq
+    _ -> eval alt
+eval (List (f : args)) = do
+  func <- eval f
+  argVals <- mapM eval args
   apply func argVals
-eval _ badform = throwError $ BadSpecialForm "Bad special form" badform
+eval badform = throwError $ BadSpecialForm "Bad special form" badform
 
 apply :: LispVal -> [LispVal] -> IOThrowsError LispVal
 apply (PrimitiveFunc f) args = liftThrows $ f args
@@ -35,10 +44,10 @@ apply (Func params [body] closure) args
   | num params /= num args = throwError $ NumArgs (num params) args
   | otherwise = do
       env <- liftIO $ bindVars closure $ zip params args
-      evalBody env
+      local (const env) evalBody
   where
     num = toInteger . length
-    evalBody env = eval env body
+    evalBody = eval body
 apply _ _ = throwError $ DefaultError "Error applying function"
 
 load :: String -> IOThrowsError LispVal

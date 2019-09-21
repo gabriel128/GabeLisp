@@ -1,6 +1,7 @@
 {-# LANGUAGE InstanceSigs #-}
 module LispVal where
 
+import Control.Monad.Reader
 import Data.IORef
 import Text.ParserCombinators.Parsec
 import Control.Monad.Except
@@ -30,7 +31,9 @@ data LispError = NumArgs Integer [LispVal]
 
 type ThrowsError = Either LispError
 
-type IOThrowsError = ExceptT LispError IO
+-- type IOThrowsError = ExceptT LispError IO
+
+type IOThrowsError = ReaderT Env (ExceptT LispError IO)
 
 instance Eq LispVal where
   (PrimitiveFunc _) == (PrimitiveFunc _) = False
@@ -81,5 +84,5 @@ liftThrows :: ThrowsError a -> IOThrowsError a
 liftThrows (Left err) = throwError err
 liftThrows (Right val) = return val
 
-runIOThrows :: IOThrowsError String -> IO String
-runIOThrows action = runExceptT (trapError action) >>= return . extractValue
+runIOThrows :: Env -> IOThrowsError String -> IO String
+runIOThrows env action = runExceptT (runReaderT (trapError action) env) >>= return . extractValue
